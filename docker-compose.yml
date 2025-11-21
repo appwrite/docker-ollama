@@ -1,0 +1,18 @@
+---
+version: '3'
+
+services:
+  ollama:
+    build: .
+    restart: unless-stopped
+    args:
+        MODELS: ${_APP_EMBEDDING_MODELS:-embeddinggemma}
+        # duration to keep model in memory
+        OLLAMA_KEEP_ALIVE: 24h
+    ports:
+      - "11434:11434"
+    volumes:
+      - appwrite-models:/root/.ollama
+    
+volumes:
+  appwrite-models:

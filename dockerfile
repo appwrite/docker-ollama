@@ -1,4 +1,4 @@
-FROM ollama/ollama:0.12.7
+FROM ollama/ollama:0.17.7
 
 # Preload specific models
 ARG MODELS

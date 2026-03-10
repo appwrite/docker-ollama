@@ -11,7 +11,7 @@ RUN ollama serve & \
     sleep 5 && \
     for m in $MODELS; do \
         echo "Pulling model $m..."; \
-        ollama pull $m || exit 1; \
+        ollama pull "$m" || exit 1; \
     done && \
     pkill ollama
 
@@ -19,5 +19,4 @@ RUN ollama serve & \
 EXPOSE 11434
 
 # On container start, quickly ensure models exist (no re-download unless missing)
-ENTRYPOINT ["/bin/bash", "-c", "(sleep 2; for m in $MODELS; do ollama list | grep -q $m || ollama pull $m; done) & exec ollama $0"]
-CMD ["serve"]
+ENTRYPOINT ["/bin/bash", "-c", "for m in \"$MODELS\"; do ollama list | grep -qw \"$m\" || ollama pull \"$m\" || exit 1; done && exec ollama serve"]

@@ -85,6 +85,9 @@ jobs:
         run: |
           echo "=== Docker Compose Logs ==="
           docker compose -f docker-compose.yml logs || true
+          echo
+          echo "=== Ollama Models (ollama list) ==="
+          docker compose -f docker-compose.yml exec -T ollama ollama list || true
 
       - name: Cleanup
         if: always()

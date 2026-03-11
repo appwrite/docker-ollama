@@ -73,11 +73,12 @@ jobs:
 
       - name: Test embeddinggemma embeddings
         run: |
-          curl -fsS http://127.0.0.1:11434/api/embeddings \
+          # Use the newer /api/embed endpoint for embeddings
+          curl -fsS http://127.0.0.1:11434/api/embed \
             -H 'Content-Type: application/json' \
             -d '{
               "model": "embeddinggemma",
-              "prompt": "Hello from embeddinggemma"
+              "input": "Hello from embeddinggemma"
             }'
 
       - name: Failure logs

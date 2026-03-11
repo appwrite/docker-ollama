@@ -1,0 +1,102 @@
+name: Verify (multi-arch build + smoke)
+
+on:
+  pull_request:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+      - master
+
+jobs:
+  build:
+    name: Build multi-arch (no push)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Extract metadata (tags, labels) for Docker
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: appwrite/ollama
+          tags: |
+            type=sha,format=short
+
+      - name: Build (amd64 + arm64)
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: ./Dockerfile
+          platforms: linux/amd64,linux/arm64
+          push: false
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          build-args: |
+            VERSION=${{ steps.meta.outputs.version }}
+            MODELS=
+            OLLAMA_KEEP_ALIVE=1m
+
+  smoke:
+    name: Smoke test (run + /api/version)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Extract metadata (tags, labels) for Docker
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: appwrite/ollama
+          tags: |
+            type=sha,format=short
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      # --load only works for single-platform builds
+      - name: Build amd64 image (load locally)
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: ./Dockerfile
+          platforms: linux/amd64
+          load: true
+          tags: local/ollama-verify:${{ steps.meta.outputs.version }}
+          labels: ${{ steps.meta.outputs.labels }}
+          build-args: |
+            VERSION=${{ steps.meta.outputs.version }}
+            MODELS=
+            OLLAMA_KEEP_ALIVE=1m
+
+      - name: Run container
+        run: |
+          docker rm -f ollama-verify >/dev/null 2>&1 || true
+          docker run -d --name ollama-verify -p 11434:11434 local/ollama-verify:${{ steps.meta.outputs.version }}
+
+      - name: Wait for server
+        run: |
+          for i in $(seq 1 30); do
+            if curl -fsS http://127.0.0.1:11434/api/version >/dev/null; then
+              exit 0
+            fi
+            sleep 1
+          done
+          echo "Ollama did not become ready in time"
+          docker logs ollama-verify || true
+          exit 1
+
+      - name: Show version
+        run: curl -fsS http://127.0.0.1:11434/api/version
+
+      - name: Cleanup
+        if: always()
+        run: docker rm -f ollama-verify || true

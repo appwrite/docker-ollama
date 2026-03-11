@@ -80,6 +80,12 @@ jobs:
               "prompt": "Hello from embeddinggemma"
             }'
 
+      - name: Failure logs
+        if: failure()
+        run: |
+          echo "=== Docker Compose Logs ==="
+          docker compose -f docker-compose.yml logs || true
+
       - name: Cleanup
         if: always()
         run: docker compose -f docker-compose.yml down -v || true

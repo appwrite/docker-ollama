@@ -20,10 +20,22 @@ RUN if [ -z "${MODELS:-}" ]; then \
         esac; \
         export OLLAMA_HOST="http://127.0.0.1:${PORT}"; \
         ollama serve >/tmp/ollama-serve.log 2>&1 & pid="$!"; \
+        ready=0; \
         for i in 1 2 3 4 5 6 7 8 9 10; do \
-            ollama list >/dev/null 2>&1 && break; \
+            if ollama list >/dev/null 2>&1; then \
+                ready=1; \
+                break; \
+            fi; \
             sleep 1; \
         done; \
+        if [ "$ready" -ne 1 ]; then \
+            echo "ERROR: ollama did not become ready during build-time pre-pull" >&2; \
+            echo "--- /tmp/ollama-serve.log ---" >&2; \
+            cat /tmp/ollama-serve.log >&2 || true; \
+            kill "$pid" || true; \
+            wait "$pid" || true; \
+            exit 1; \
+        fi; \
         for m in $MODELS; do \
             echo "Pulling model $m..."; \
             ollama pull "$m" || exit 1; \
@@ -36,4 +48,4 @@ RUN if [ -z "${MODELS:-}" ]; then \
 EXPOSE 11434
 
 # On container start, quickly ensure models exist (no re-download unless missing)
-ENTRYPOINT ["/bin/bash", "-lc", "set -euo pipefail; if [[ -n \"${MODELS:-}\" ]]; then read -r -a models <<< \"${MODELS}\"; ollama serve >/tmp/ollama-entrypoint.log 2>&1 & pid=$!; for i in {1..20}; do ollama list >/dev/null 2>&1 && break; sleep 1; done; for m in \"${models[@]}\"; do ollama list | grep -qw \"$m\" || ollama pull \"$m\"; done; kill \"$pid\"; wait \"$pid\" || true; fi; exec ollama serve"]
+ENTRYPOINT ["/bin/bash", "-lc", "set -euo pipefail; if [[ -n \"${MODELS:-}\" ]]; then read -r -a models <<< \"${MODELS}\"; ollama serve >/tmp/ollama-entrypoint.log 2>&1 & pid=$!; ready=0; for i in {1..20}; do if ollama list >/dev/null 2>&1; then ready=1; break; fi; sleep 1; done; if [[ \"$ready\" -ne 1 ]]; then echo 'ERROR: ollama did not become ready during entrypoint pre-pull' >&2; echo '--- /tmp/ollama-entrypoint.log ---' >&2; cat /tmp/ollama-entrypoint.log >&2 || true; kill \"$pid\" || true; wait \"$pid\" || true; exit 1; fi; for m in \"${models[@]}\"; do ollama list | grep -qw \"$m\" || ollama pull \"$m\"; done; kill \"$pid\"; wait \"$pid\" || true; fi; exec ollama serve"]

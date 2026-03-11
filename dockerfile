@@ -8,6 +8,10 @@ ENV MODELS=${MODELS}
 ARG OLLAMA_KEEP_ALIVE
 ENV OLLAMA_KEEP_ALIVE=${OLLAMA_KEEP_ALIVE:-24h}
 
+# Copy entrypoint script
+COPY entrypoint.sh /usr/local/bin/ollama-entrypoint.sh
+RUN chmod +x /usr/local/bin/ollama-entrypoint.sh
+
 # Pre-pull models at build time for Docker layer caching
 ARG TARGETARCH
 RUN if [ -z "${MODELS:-}" ]; then \
@@ -48,4 +52,4 @@ RUN if [ -z "${MODELS:-}" ]; then \
 EXPOSE 11434
 
 # On container start, quickly ensure models exist (no re-download unless missing)
-ENTRYPOINT ["/bin/bash", "-lc", "set -euo pipefail; if [[ -n \"${MODELS:-}\" ]]; then read -r -a models <<< \"${MODELS}\"; ollama serve >/tmp/ollama-entrypoint.log 2>&1 & pid=$!; ready=0; for i in {1..20}; do if ollama list >/dev/null 2>&1; then ready=1; break; fi; sleep 1; done; if [[ \"$ready\" -ne 1 ]]; then echo 'ERROR: ollama did not become ready during entrypoint pre-pull' >&2; echo '--- /tmp/ollama-entrypoint.log ---' >&2; cat /tmp/ollama-entrypoint.log >&2 || true; kill \"$pid\" || true; wait \"$pid\" || true; exit 1; fi; for m in \"${models[@]}\"; do if ollama list | awk 'NR>1 {print $1}' | grep -Fxq \"$m\"; then :; elif [[ \"$m\" != *:* ]] && ollama list | awk 'NR>1 {print $1}' | grep -Fxq \"$m:latest\"; then :; else ollama pull \"$m\"; fi; done; kill \"$pid\"; wait \"$pid\" || true; fi; exec ollama serve"]
+ENTRYPOINT ["/usr/local/bin/ollama-entrypoint.sh"]

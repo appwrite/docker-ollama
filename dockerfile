@@ -1,4 +1,4 @@
-FROM ollama/ollama:0.17.7@sha256:0ff452f6a4c3c5bb4ab063a1db190b261d5834741a519189ed5301d50e4434d1
+FROM ollama/ollama:0.40.19@sha256:7e8c7ba387b11b09dcce1eff1118b1ab433564ed263434a7730c209f2ee346f4
 
 # Preload specific models
 ARG MODELS
